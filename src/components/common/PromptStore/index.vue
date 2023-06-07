@@ -1,9 +1,9 @@
 <script setup lang='ts'>
 import type { DataTableColumns } from 'naive-ui'
 import { computed, h, ref, watch } from 'vue'
-import { NButton, NCard, NDataTable, NDivider, NInput, NList, NListItem, NModal, NPopconfirm, NSpace, NTabPane, NTabs, NThing, useMessage } from 'naive-ui'
-import PromptRecommend from '../../../assets/recommend.json'
-import { SvgIcon } from '..'
+import { NButton,NDataTable, NInput, NList, NListItem, NModal, NPopconfirm, NSpace, NTabPane, NTabs, NThing, useMessage } from 'naive-ui'
+// import PromptRecommend from '../../../assets/recommend.json'
+// import { SvgIcon } from '..'
 import { usePromptStore } from '@/store'
 import { useBasicLayout } from '@/hooks/useBasicLayout'
 import { t } from '@/locales'
@@ -36,7 +36,7 @@ const show = computed({
 
 const showModal = ref(false)
 
-const importLoading = ref(false)
+// const importLoading = ref(false)
 const exportLoading = ref(false)
 
 const searchValue = ref<string>('')
@@ -47,7 +47,7 @@ const { isMobile } = useBasicLayout()
 const promptStore = usePromptStore()
 
 // Prompt在线导入推荐List,根据部署者喜好进行修改(assets/recommend.json)
-const promptRecommendList = PromptRecommend
+// const promptRecommendList = PromptRecommend
 const promptList = ref<any>(promptStore.promptList)
 
 // 用于添加修改的临时prompt参数
@@ -80,11 +80,11 @@ const changeShowModal = (mode: 'add' | 'modify' | 'local_import', selected = { k
 }
 
 // 在线导入相关
-const downloadURL = ref('')
-const downloadDisabled = computed(() => downloadURL.value.trim().length < 1)
-const setDownloadURL = (url: string) => {
-  downloadURL.value = url
-}
+// const downloadURL = ref('')
+// const downloadDisabled = computed(() => downloadURL.value.trim().length < 1)
+// const setDownloadURL = (url: string) => {
+//   downloadURL.value = url
+// }
 
 // 控制 input 按钮
 const inputStatus = computed (() => tempPromptKey.value.trim().length < 1 || tempPromptValue.value.trim().length < 1)
@@ -210,33 +210,33 @@ const exportPromptTemplate = () => {
 }
 
 // 模板在线导入
-const downloadPromptTemplate = async () => {
-  try {
-    importLoading.value = true
-    const response = await fetch(downloadURL.value)
-    const jsonData = await response.json()
-    if ('key' in jsonData[0] && 'value' in jsonData[0])
-      tempPromptValue.value = JSON.stringify(jsonData)
-    if ('act' in jsonData[0] && 'prompt' in jsonData[0]) {
-      const newJsonData = jsonData.map((item: { act: string; prompt: string }) => {
-        return {
-          key: item.act,
-          value: item.prompt,
-        }
-      })
-      tempPromptValue.value = JSON.stringify(newJsonData)
-    }
-    importPromptTemplate()
-    downloadURL.value = ''
-  }
-  catch {
-    message.error(t('store.downloadError'))
-    downloadURL.value = ''
-  }
-  finally {
-    importLoading.value = false
-  }
-}
+// const downloadPromptTemplate = async () => {
+//   try {
+//     importLoading.value = true
+//     const response = await fetch(downloadURL.value)
+//     const jsonData = await response.json()
+//     if ('key' in jsonData[0] && 'value' in jsonData[0])
+//       tempPromptValue.value = JSON.stringify(jsonData)
+//     if ('act' in jsonData[0] && 'prompt' in jsonData[0]) {
+//       const newJsonData = jsonData.map((item: { act: string; prompt: string }) => {
+//         return {
+//           key: item.act,
+//           value: item.prompt,
+//         }
+//       })
+//       tempPromptValue.value = JSON.stringify(newJsonData)
+//     }
+//     importPromptTemplate()
+//     downloadURL.value = ''
+//   }
+//   catch {
+//     message.error(t('store.downloadError'))
+//     downloadURL.value = ''
+//   }
+//   finally {
+//     importLoading.value = false
+//   }
+// }
 
 // 移动端自适应相关
 const renderTemplate = () => {
@@ -393,7 +393,7 @@ const dataSource = computed(() => {
             </NListItem>
           </NList>
         </NTabPane>
-        <NTabPane name="download" :tab="$t('store.online')">
+        <!-- <NTabPane name="download" :tab="$t('store.online')">
           <p class="mb-4">
             {{ $t('store.onlineImportWarning') }}
           </p>
@@ -440,7 +440,7 @@ const dataSource = computed(() => {
               </template>
             </NCard>
           </div>
-        </NTabPane>
+        </NTabPane> -->
       </NTabs>
     </div>
   </NModal>
