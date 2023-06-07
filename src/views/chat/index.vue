@@ -607,9 +607,9 @@ onUnmounted(() => {
         <div role="none" class="n-space" style="display: flex; flex-flow: row wrap; justify-content: center; align-items: center; gap: 8px 12px;">
           <div role="none" style="max-width: 100%;">
             <span class="n-text" style="color:#ccc;--n-bezier: cubic-bezier(.4, 0, .2, 1); --n-text-color: rgb(118, 124, 130); --n-font-weight-strong: 500; --n-font-famliy-mono: v-mono, SFMono-Regular, Menlo, Consolas, Courier, monospace; --n-code-border-radius: 2px; --n-code-text-color: rgb(51, 54, 57); --n-code-color: rgb(244, 244, 248); --n-code-border: 1px solid #0000;">
-              GPT-4已上线，相较于此版本（GPT-3.5）回复更加智能。如需体验，请前往：https://openai.jiyux.com/ 
+              GPT-4已上线，相较于此版本（GPT-3.5）回复更加智能。如需体验，请前往：http://openai.jiyux.com/ 
             </span>
-            <a href="https://openai.jiyux.com/" class="bg-[#d2f9d1] dark:bg-[#a1dc95]">立即前往</a>
+            <a href="http://openai.jiyux.com/" class="bg-[#d2f9d1] dark:bg-[#a1dc95]">立即前往</a>
           </div>
         </div>
         <div class="flex items-center justify-between space-x-2">
