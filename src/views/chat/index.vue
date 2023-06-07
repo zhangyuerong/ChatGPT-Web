@@ -12,9 +12,11 @@ import { useUsingContext } from './hooks/useUsingContext'
 import HeaderComponent from './components/Header/index.vue'
 import { HoverButton, SvgIcon } from '@/components/common'
 import { useBasicLayout } from '@/hooks/useBasicLayout'
-import { useChatStore, usePromptStore } from '@/store'
+import { useChatStore, usePromptStore, useUserStore } from '@/store'
 import { fetchChatAPIProcess } from '@/api'
 import { t } from '@/locales'
+import { restrictIp,insertLogApi } from '@/api/db'
+import HelpDoc from './layout/HelpDoc.vue'
 
 let controller = new AbortController()
 
@@ -25,7 +27,10 @@ const dialog = useDialog()
 const ms = useMessage()
 
 const chatStore = useChatStore()
+const userStore = useUserStore()
 
+const userInfo = computed(() => userStore.userInfo);
+userInfo.value.tryText = "";
 const { isMobile } = useBasicLayout()
 const { addChat, updateChat, updateChatSome, getChatByUuidAndIndex } = useChat()
 const { scrollRef, scrollToBottom, scrollToBottomIfAtBottom } = useScroll()
@@ -36,7 +41,13 @@ const { uuid } = route.params as { uuid: string }
 const dataSources = computed(() => chatStore.getChatByUuid(+uuid))
 const conversationList = computed(() => dataSources.value.filter(item => (!item.inversion && !!item.conversationOptions)))
 
-const prompt = ref<string>('')
+// const prompt = ref<string>('')
+let prompt = computed({
+  get: () => userInfo.value.tryText,
+  set: (newValue) => {
+    userInfo.value.tryText = newValue;
+  }
+});
 const loading = ref<boolean>(false)
 const inputRef = ref<Ref | null>(null)
 
@@ -51,7 +62,75 @@ dataSources.value.forEach((item, index) => {
   if (item.loading)
     updateChatSome(+uuid, index, { loading: false })
 })
-
+interface ResponseData {
+  data: {
+    counts:number;
+    sumNum:number;
+  };
+  message: string;
+  success: boolean;
+}
+//刷新--记录访问IP
+initRestrictIp()
+async function initRestrictIp() {
+  try {
+    const response = (await restrictIp()) as ResponseData;
+    if (response && response.success) {
+      const sumNum = response.data.sumNum;
+      const counts = response.data.counts;
+      // console.log("successfully",sumNum , counts);
+      const freeNum = (sumNum - counts) >= 0 ? (sumNum - counts):0;
+      // console.log("successfully",freeNum);
+      userStore.updateUserInfo({
+        freeNum: freeNum,
+        sumNum: sumNum,
+      }); //将剩余次数,已经使用次数放入缓存
+    } else {
+      // console.error("failed:", response.message);
+    }
+  } catch (error) {
+    // console.log("error:", error);
+  }
+}
+function addChatByMessage(message: string) {
+  addChat(+uuid, {
+    dateTime: new Date().toLocaleString(),
+    text: message,
+    inversion: false, //true代表自己,false代表对方
+    error: false,
+    loading: false,
+    conversationOptions: null,
+    requestOptions: { prompt: message, options: null },
+  });
+  scrollToBottom();
+}
+//添加提问记录
+async function insertLog<T = any>() {
+  if(userInfo.value.freeNum <=0){
+    const message ="由于人数过多，已限制您每天最多"+userInfo.value.sumNum+"次提问 ~ 请明天再来吧";
+      addChatByMessage(message);
+      return;
+  }else{
+    userStore.updateUserInfo({
+      freeNum: userInfo.value.freeNum- 1,
+    }); //将剩余次数,已经使用次数放入缓存
+    try {
+      const response = (await insertLogApi({
+      question: prompt.value,
+      })) as ResponseData;
+      console.log("insertLog -> response:", response);
+      if (response && response.success) {
+        console.log("successfully");
+      } else {
+        ms.warning(response.message);
+        console.error("failed:", response.message);
+      }
+    } catch (error) {
+      console.log("error:", error);
+    }
+  }
+  
+}
 function handleSubmit() {
   onConversation()
 }
@@ -64,6 +143,13 @@ async function onConversation() {
 
   if (!message || message.trim() === '')
     return
+
+  if(userInfo.value.freeNum <=0){
+    const message ="由于使用人数过多，已限制您每天最多"+userInfo.value.sumNum+"次提问，请明天再来吧！如有疑问，请咨询客服人员";
+    addChatByMessage(message);
+    return;
+  }
+  insertLog();//识别剩余次数和记录
 
   controller = new AbortController()
 
@@ -82,6 +168,7 @@ async function onConversation() {
 
   loading.value = true
   prompt.value = ''
+  userInfo.value.tryText = ""
 
   let options: Chat.ConversationRequest = {}
   const lastContext = conversationList.value[conversationList.value.length - 1]?.conversationOptions
@@ -412,7 +499,8 @@ function handleStop() {
 // 搜索选项计算，这里使用value作为索引项，所以当出现重复value时渲染异常(多项同时出现选中效果)
 // 理想状态下其实应该是key作为索引项,但官方的renderOption会出现问题，所以就需要value反renderLabel实现
 const searchOptions = computed(() => {
-  if (prompt.value.startsWith('/')) {
+  
+  if (prompt.value && prompt.value.startsWith('/')) {
     return promptTemplate.value.filter((item: { key: string }) => item.key.toLowerCase().includes(prompt.value.substring(1).toLowerCase())).map((obj: { value: any }) => {
       return {
         label: obj.value,
@@ -438,6 +526,9 @@ const placeholder = computed(() => {
   if (isMobile.value)
     return t('chat.placeholderMobile')
   return t('chat.placeholder')
+  // if (isMobile.value)
+  //   return "由于人数过多,您今天还剩：【"+userInfo.value.freeNum+"】次提问"
+  // return "由于人数过多,已限制您每天最多"+userInfo.value.sumNum+"次提问~您今天还剩：【"+userInfo.value.freeNum+" 】次提问"
 })
 
 const buttonDisabled = computed(() => {
@@ -479,10 +570,11 @@ onUnmounted(() => {
           :class="[isMobile ? 'p-2' : 'p-4']"
         >
           <template v-if="!dataSources.length">
-            <div class="flex items-center justify-center mt-4 text-center text-neutral-300">
+            <!-- <div class="flex items-center justify-center mt-4 text-center text-neutral-300">
               <SvgIcon icon="ri:bubble-chart-fill" class="mr-2 text-3xl" />
-              <span>Aha~</span>
-            </div>
+              <span>浏览器访问版本：http://openai.jiyux.com</span>
+            </div> -->
+            <HelpDoc :visible="true"/>
           </template>
           <template v-else>
             <div>
@@ -502,7 +594,7 @@ onUnmounted(() => {
                   <template #icon>
                     <SvgIcon icon="ri:stop-circle-line" />
                   </template>
-									{{ t('common.stopResponding') }}
+                  Stop Responding
                 </NButton>
               </div>
             </div>
@@ -512,6 +604,14 @@ onUnmounted(() => {
     </main>
     <footer :class="footerClass">
       <div class="w-full max-w-screen-xl m-auto">
+        <div role="none" class="n-space" style="display: flex; flex-flow: row wrap; justify-content: center; align-items: center; gap: 8px 12px;">
+          <div role="none" style="max-width: 100%;">
+            <span class="n-text" style="color:#ccc;--n-bezier: cubic-bezier(.4, 0, .2, 1); --n-text-color: rgb(118, 124, 130); --n-font-weight-strong: 500; --n-font-famliy-mono: v-mono, SFMono-Regular, Menlo, Consolas, Courier, monospace; --n-code-border-radius: 2px; --n-code-text-color: rgb(51, 54, 57); --n-code-color: rgb(244, 244, 248); --n-code-border: 1px solid #0000;">
+              GPT-4已上线，相较于此版本（GPT-3.5）回复更加智能。如需体验，请前往：https://openai.jiyux.com/ 
+            </span>
+            <a href="https://openai.jiyux.com/" class="bg-[#d2f9d1] dark:bg-[#a1dc95]">立即前往</a>
+          </div>
+        </div>
         <div class="flex items-center justify-between space-x-2">
           <HoverButton @click="handleClear">
             <span class="text-xl text-[#4f555e] dark:text-white">
